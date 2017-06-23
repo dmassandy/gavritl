@@ -21,11 +21,11 @@ RUN mkdir /gavritl-app
 
 WORKDIR /gavritl-app
 
-ADD start.sh /gavritl-app/start.sh
-
 ADD requirements.txt /gavritl-app/requirements.txt
 
 RUN pip install -r requirements.txt
+
+ADD start.sh /gavritl-app/start.sh
 
 VOLUME /gavritl-app
 

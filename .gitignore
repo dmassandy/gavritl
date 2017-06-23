@@ -102,3 +102,7 @@ myenv/
 
 # sql lite db
 *.sqlite3
+
+# sessions & user_media
+sessions/
+user_media/
