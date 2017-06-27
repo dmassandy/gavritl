@@ -14,4 +14,5 @@ urlpatterns = [
     url(r'^user/sign_up$', user_views.sign_up, name='User Sign Up'),
     url(r'^user/logout$', user_views.log_out, name='User Log Out'),
     url(r'^user/status$', user_views.set_presence, name='User Set Presence'),
+    url(r'^user_test/sign_in$', user_views.test_sign_in, name='User Test Sign In'),
 ]

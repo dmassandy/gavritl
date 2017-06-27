@@ -167,5 +167,7 @@ TELETHON_USER_MEDIA_DIR = os.path.join(BASE_DIR, 'user_media')
 if not os.path.exists(TELETHON_USER_MEDIA_DIR):
     os.makedirs(TELETHON_USER_MEDIA_DIR)
 
-TELEGRAM_API_ID = ''
-TELEGRAM_API_HASH = ''
+try:
+    from .local_settings import *
+except ImportError:
+    pass

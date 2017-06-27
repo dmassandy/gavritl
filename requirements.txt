@@ -1,4 +1,9 @@
+certifi==2017.4.17
+chardet==3.0.4
 Django==1.11.2
 djangorestframework==3.6.3
 gunicorn==19.7.1
+idna==2.5
 pytz==2017.2
+requests==2.18.1
+urllib3==1.21.1
