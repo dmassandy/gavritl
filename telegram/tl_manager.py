@@ -325,16 +325,16 @@ class GavriTLClient(TelegramClient):
                 logging.info('Media message to download: {}'.format(str(len(media_list))))
                 # download media
                 for msg in media_list:
-                    if type(msg) is MessageMediaGeo:
-                        if type(msg.geo) is GeoPoint:
-                            logging.info('Received GeoPoint message {} - {}!'.format(msg.geo.lat, msg.geo.long))
+                    if type(msg.media) is MessageMediaGeo:
+                        if type(msg.media.geo) is GeoPoint:
+                            logging.info('Received GeoPoint message {} - {}!'.format(msg.media.geo.lat, msg.media.geo.long))
                             m = {}
                             m['message_type'] = 'location'
                             m['id'] = str(msg.id)
                             m['from'] = msg.from_id
                             m['to'] = self.user_phone
-                            m['lat'] = msg.geo.lat
-                            m['long'] = msg.geo.long
+                            m['lat'] = msg.media.geo.lat
+                            m['long'] = msg.media.geo.long
                             new_messages.append(m)
                         else:
                             logging.warning('Received empty GeoPoint!')
