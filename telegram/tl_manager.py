@@ -42,9 +42,9 @@ class GavriTLClient(TelegramClient):
         logging.info('Connecting to Telegram servers...')
         self.is_success_connect = True
         if not self.connect():
-            logging.info('Initial connection failed. Retrying...')
+            logging.warning('Initial connection failed. Retrying...')
             if not self.connect():
-                logging.info('Could not connect to Telegram servers. %s', phone_number)
+                logging.error('Could not connect to Telegram servers. %s', phone_number)
                 self.is_success_connect = False
                 return
         if self.is_success_connect:
@@ -61,7 +61,7 @@ class GavriTLClient(TelegramClient):
             result_code = 1 if self_user is not None else 0
         # Two-step verification may be enabled
         except SessionPasswordNeededError:
-            logging.info('Two step verification is enabled for %s. Sign in with password.', self.user_phone)
+            logging.warning('Two step verification is enabled for %s. Sign in with password.', self.user_phone)
 
             self_user = self.sign_in(password=pw)
             result_code = 2 if self_user is not None else 0
@@ -78,7 +78,7 @@ class GavriTLClient(TelegramClient):
                 userModel.access_hash = self_user.access_hash
             userModel.save()
         except ObjectDoesNotExist:
-            logging.info('No user in db %s', self.user_phone)
+            logging.warning('No user in db %s', self.user_phone)
 
         return result_code
 
@@ -108,7 +108,7 @@ class GavriTLClient(TelegramClient):
                 userModel.access_hash = self_user.access_hash
             userModel.save()
         except ObjectDoesNotExist:
-            logging.info('No user in db %s', self.user_phone)
+            logging.warning('No user in db %s', self.user_phone)
 
         return signup_error
     
@@ -117,10 +117,10 @@ class GavriTLClient(TelegramClient):
         try:
             contactModel = TLContact.objects.get(owner=self.user_phone,phone=phone)
         except ObjectDoesNotExist:
-            logging.info('No contact exits in %s, adding new contact %s', self.user_phone, phone)
+            logging.warning('No contact exits in %s, adding new contact %s', self.user_phone, phone)
             inputContact = InputPhoneContact(0, phone, first_name, '' if last_name is None else last_name)
             result = self.invoke(ImportContactsRequest([inputContact], True))
-            logging.info(result)
+            logging.debug(result)
             if type(result) is ImportedContacts and len(result.users) > 0 :
                 logging.info('New contact added : {}'.format(str(len(result.users))))
                 for user in result.users:
@@ -157,7 +157,7 @@ class GavriTLClient(TelegramClient):
 
         # After we have the handle to the uploaded file, send it to our peer
         msg_id = self.send_photo_file(input_file, peer_user, caption=caption)
-        logging.info('Photo sent!')
+        logging.debug('Photo sent!')
         logging.info('Send message id {}'.format(msg_id))
         return msg_id
     
@@ -174,7 +174,7 @@ class GavriTLClient(TelegramClient):
 
         # After we have the handle to the uploaded file, send it to our peer
         msg_id = self.send_document_file(input_file, peer_user, caption=caption)
-        logging.info('Document sent!')
+        logging.debug('Document sent!')
         logging.info('Send message id {}'.format(msg_id))
         return msg_id
 
@@ -377,7 +377,7 @@ class GavriTLManager():
     def add_user(self, phone_number, first_name=None, last_name=None, replace=False):
         if phone_number in self.tl_clients:
             if replace:
-                logging.info('Logging out current active user %s.', phone_number)
+                logging.warning('Logging out current active user %s.', phone_number)
                 self.tl_clients[phone_number].log_out()
                 del self.tl_clients[phone_number]
             else:

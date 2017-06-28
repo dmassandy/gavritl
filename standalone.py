@@ -55,7 +55,7 @@ def send_incoming_message(message, s3_client):
                     file_name)
         payload["caption"] = message.get("caption", "")
     
-    logging.info(str(payload))
+    logging.debug(str(payload))
     sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/incoming', payload)
 
 def send_message_sent_update(message):
@@ -71,7 +71,7 @@ def send_message_sent_update(message):
     if "message_id" in message:
         payload["message_id"] = message["message_id"]
     
-    logging.info(str(payload))
+    logging.debug(str(payload))
     sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/outgoing', payload)
 
 def send_user_update(message):
@@ -86,7 +86,7 @@ def send_user_update(message):
         "status" : message["status"]
     }
 
-    logging.info(str(payload))
+    logging.debug(str(payload))
     sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/user', payload)
 
 
