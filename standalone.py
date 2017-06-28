@@ -45,6 +45,14 @@ def send_incoming_message(message, s3_client):
     elif message["message_type"] == "location":
         payload["lat"] = message["lat"]
         payload["long"] = message["long"]
+        if "title" in message:
+            payload['title'] = message['title']
+        if "address" in message:
+            payload['address'] = message['address']
+        if "provider" in message:
+            payload['provider'] = message['provider']
+        if "venue_id" in message:
+            payload['venue_id'] = message['venue_id']
     elif message["message_type"] == "url":
         payload['url'] = message["url"]
         if "site_type" in message :

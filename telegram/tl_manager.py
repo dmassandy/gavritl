@@ -8,7 +8,7 @@ from telethon.utils import find_user_or_chat
 from telethon.errors import SessionPasswordNeededError
 from telethon.tl.types import (UpdateShortChatMessage, UpdateShortMessage, User, InputPeerUser, InputUser,
                                 InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage, 
-                                UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint, MessageMediaWebPage, WebPage)
+                                UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint, MessageMediaWebPage, WebPage, MessageMediaVenue)
 
 from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest
 from telethon.tl.types.contacts import Contacts, ImportedContacts
@@ -325,7 +325,7 @@ class GavriTLClient(TelegramClient):
                 logging.info('Media message to download: {}'.format(str(len(media_list))))
                 # download media
                 for msg in media_list:
-                    if type(msg.media) is MessageMediaGeo:
+                    if type(msg.media) is MessageMediaGeo or type(msg.media) is MessageMediaVenue:
                         if type(msg.media.geo) is GeoPoint:
                             logging.info('Received GeoPoint message {} - {}!'.format(msg.media.geo.lat, msg.media.geo.long))
                             m = {}
@@ -335,25 +335,36 @@ class GavriTLClient(TelegramClient):
                             m['to'] = self.user_phone
                             m['lat'] = msg.media.geo.lat
                             m['long'] = msg.media.geo.long
+
+                            if type(msg.media) is MessageMediaVenue:
+                                if msg.media.title is not None:
+                                    m['title'] = msg.media.title
+                                if msg.media.address is not None:
+                                    m['address'] = msg.media.address
+                                if msg.media.provider is not None:
+                                    m['provider'] = msg.media.provider
+                                if msg.media.venue_id is not None:
+                                    m['venue_id'] = msg.media.venue_id
+
                             new_messages.append(m)
                         else:
                             logging.warning('Received empty GeoPoint!')
                     elif type(msg.media) is MessageMediaWebPage:
-                        m = {
-                            'message_type' : 'url',
-                            'id' : str(msg.id),
-                            'from' : msg.from_id,
-                            'to' : self.user_phone
-                        }
-                        m['url'] = msg.media.url
-                        if msg.media.type is not None:
-                            m['site_type'] = msg.media.type
-                        if msg.media.site_name is not None:
-                            m['site_name'] = msg.media.site_name
-                        if msg.media.title is not None:
-                            m['title'] = msg.media.title
-                        if msg.media.description is not None:
-                            m['description'] = msg.media.description
+                        m = {}
+                        m['message_type'] = 'url'
+                        m['id'] = str(msg.id)
+                        m['from'] = msg.from_id
+                        m['to'] = self.user_phone
+                        m['url'] = msg.media.webpage.url
+                        if msg.media.webpage.type is not None:
+                            m['site_type'] = msg.media.webpage.type
+                        if msg.media.webpage.site_name is not None:
+                            m['site_name'] = msg.media.webpage.site_name
+                        if msg.media.webpage.title is not None:
+                            m['title'] = msg.media.webpage.title
+                        if msg.media.webpage.description is not None:
+                            m['description'] = msg.media.webpage.description
+                        
                         new_messages.append(m)
                     else:
                         output = phone_number_only(self.user_phone) + "_" + str(msg.id)
