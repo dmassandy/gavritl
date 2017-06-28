@@ -7,7 +7,7 @@ from telethon import TelegramClient
 from telethon.utils import find_user_or_chat
 from telethon.errors import SessionPasswordNeededError
 from telethon.tl.types import (UpdateShortChatMessage, UpdateShortMessage, User, InputPeerUser, InputUser,
-                                InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage)
+                                InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage, UpdateReadHistoryOutbox)
 
 from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest
 from telethon.tl.types.contacts import Contacts, ImportedContacts
@@ -231,6 +231,7 @@ class GavriTLClient(TelegramClient):
         logging.info('{} received update: {}'.format(self.user_phone, type(update_object).__name__))
         logging.info(str(update_object))
         new_messages = []
+        outbox_read = []
         if type(update_object) is UpdateShortMessage:
             # ignore outgoint chat
             if update_object.out:
@@ -263,6 +264,10 @@ class GavriTLClient(TelegramClient):
             for update in update_object.updates:
                 if type(update) is UpdateContactLink:
                     new_contacts.append(update.user_id)
+                elif type(update) is UpdateReadHistoryOutbox:
+                    if type(update.peer) is not PeerUser: #ignore if to group chat
+                        continue
+                    outbox_read.append(update)
                 elif type(update) is UpdateNewMessage:
                     logging.info('update new message')
                     if update.message.out: # pass if our outgoing message
@@ -329,13 +334,34 @@ class GavriTLClient(TelegramClient):
                 contactModel = TLContact.objects.get(owner=self.user_phone,user_id=new_message['from'])
             except ObjectDoesNotExist:
                 logging.error("Cannot find contact with user id %s.", new_message['from'])
+                continue
             
             new_message['from'] = contactModel.phone
+            new_message['sender_first_name'] = contactModel.first_name
+            if contactModel.last_name is not None:
+                new_message['sender_last_name'] = contactModel.last_name
             new_message['type'] = 'incoming'
             # logging.info(str(new_message))
             self.redisClient.publish(settings.REDIS_INCOMING_JOB_QUEUE, json.dumps(new_message))
-
-        # handle TG containing : contact update, sent media
+        
+        for read_outbox in outbox_read:
+            # get from phone number
+            contactModel = None
+            try:
+                contactModel = TLContact.objects.get(owner=self.user_phone,user_id=read_outbox.peer.user_id)
+            except ObjectDoesNotExist:
+                logging.error("Cannot find contact with user id %s.", read_outbox.peer.user_id)
+                continue
+            payload = {
+                "type": "message_update",
+                "phone_from": self.user_phone,
+                "phone_to": contactModel.phone,
+                "status": "Read",
+                "max_id": read_outbox.max_id,
+                "message": "User {} has read {}'s messages until message_id {}".format(contactModel.phone, self.user_phone, read_outbox.max_id)
+            }
+            self.redisClient.publish(settings.REDIS_INCOMING_JOB_QUEUE, json.dumps(payload))
+        # handle TG containing : contact update, sent media, outbox history read
 
 class GavriTLManager():
     def __init__(self, api_id, api_hash, redisClient, session_base_path=None):

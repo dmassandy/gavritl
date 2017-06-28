@@ -21,7 +21,7 @@ INCOMING_THREAD_RUN = True
 def sendJsonToMoobiDesk(prefix, url, data):
     if prefix == '':
         return True
-    # logger.debug(data)
+    # logging.debug(data)
     response = requests.post(prefix + url, json=data)
     logging.info("Sending to moobidesk %s - %s"%(response.status_code,response.text))
     response_data = json.loads(response.text)
@@ -29,13 +29,17 @@ def sendJsonToMoobiDesk(prefix, url, data):
 
 def send_incoming_message(message, s3_client):
     # send incoming message to Moobidesk
-    logging.info("Received incoming message: {}".format(message))
+    logging.info("Received incoming message")
     payload = {
         "phone_from" : message["from"],
         "phone_to" : message["to"],
         "message_id" : message["id"],
         "type" :  message["message_type"],
+        "sender_first_name" : message["sender_first_name"]
     }
+    if "sender_last_name" in message:
+        payload["sender_last_name"] = message["sender_last_name"]
+    
     if message["message_type"] == "text" :
         payload["message"] = message["body"]
     else:
@@ -54,24 +58,32 @@ def send_incoming_message(message, s3_client):
                     settings.S3_BUCKET,
                     file_name)
         payload["caption"] = message.get("caption", "")
+        # TO DO : remove file if uploaded successfully to s3
+        try:
+            os.remove(message["file_path"])
+        except OSError as e:
+            logging.warning("Cannot remove downloaded file {} : ".format(message["file_path"], str(e)))
     
-    logging.debug(str(payload))
+    logging.info(str(payload))
     sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/incoming', payload)
 
 def send_message_sent_update(message):
     # send message outgoing id/status to Moobidesk
-    logging.info("Received message update: {}".format(message))
+    logging.info("Received message update")
     payload = {
         "phone_from" : message["phone_from"],
         "phone_to" : message["phone_to"],
-        "internal_id" : message["internal_id"],
         "message" : message["message"],
         "status" : message["status"]
     }
     if "message_id" in message:
         payload["message_id"] = message["message_id"]
+    if "internal_id" in message:
+        payload["internal_id"] = message["internal_id"]
+    if "max_id" in message:
+        payload["max_id"] = message["max_id"]
     
-    logging.debug(str(payload))
+    logging.info(str(payload))
     sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/outgoing', payload)
 
 def send_user_update(message):
@@ -79,14 +91,14 @@ def send_user_update(message):
     # - Request code has been sent/or not
     # - Sign in success/Failed
     # - Sign up success/Failed
-    logging.info("Received user update: {}".format(message))
+    logging.info("Received user update:")
     payload = {
         "phone_number" : message["phone_number"],
         "message" : message["message"],
         "status" : message["status"]
     }
 
-    logging.debug(str(payload))
+    logging.info(str(payload))
     sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/user', payload)
 
 
@@ -189,7 +201,7 @@ def do_send_text(gavriTLManager, message, redisClient):
         else:
             response["message"] = "Success sending message from {} to {}".format(message['phone_from'], message['phone_to'])
             response["message_id"] = message_id
-            response["status"] = "Ok"
+            response["status"] = "Sent"
 
     response['type'] = 'message_update'
     redisClient.publish(settings.REDIS_INCOMING_JOB_QUEUE, json.dumps(response))
@@ -214,7 +226,7 @@ def do_send_media(gavriTLManager, message, redisClient):
             response["message"] = "Failed sent message from {} to {}".format(message['phone_from'], message['phone_to'])
             response["status"] = "Failed"
         else:
-            response["status"] = "Ok"
+            response["status"] = "Sent"
             response["message"] = "Success sending message from {} to {}".format(message['phone_from'], message['phone_to'])
             response["message_id"] = message_id
 
