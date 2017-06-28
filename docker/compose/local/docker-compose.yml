@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  gavritl:
+    build: ../../build/gavritl
+    image: gavritl
+    environment:
+      - RUN_MODE=gavritl_web
+      - logfile=gavritl2.log
+    command: /start.sh
+    hostname: gavritl
+    volumes:
+      - ../../..:/gavritl-app
+    working_dir: /gavritl-app
+    links:
+      - redis:redis
+    depends_on:
+      - redis
+      - gavritl_backend
+    ports:
+      - "8000:8000"
+    networks:
+      - gavritl_network
+  gavritl_backend:
+    build: ../../build/gavritl
+    image: gavritl
+    environment:
+      - RUN_MODE=gavritl_backend
+      - logfile=gavritl_backend.log
+    command: /start.sh
+    hostname: gavritl_backend
+    volumes:
+      - ../../..:/gavritl-app
+    working_dir: /gavritl-app
+    links:
+      - redis:redis
+    depends_on:
+      - redis
+    restart: on-failure
+    networks:
+      - gavritl_network
+  redis:
+    image: redis:latest
+    ports:
+        - "6379:6379"
+    networks:
+      - gavritl_network
+networks:
+  gavritl_network:

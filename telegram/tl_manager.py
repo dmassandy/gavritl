@@ -1,5 +1,6 @@
 import os
 import hashlib
+import json
 from time import sleep
 from django.core.exceptions import ObjectDoesNotExist
 from telethon import TelegramClient
@@ -30,13 +31,14 @@ def bytes_to_string(byte_count):
                              [' bytes', 'KB', 'MB', 'GB', 'TB'][suffix_index])
 
 class GavriTLClient(TelegramClient):
-    def __init__(self, api_id, api_hash, phone_number,
+    def __init__(self, api_id, api_hash, phone_number, redisClient,
                 proxy=None, session_base_path=None, user_media_base_path=None):
         session_user_id = phone_number.replace('+','')
         logging.info('Initializing GavriTLClient %s', phone_number)
         super().__init__(session_user_id, api_id, api_hash, proxy=proxy, session_base_path=session_base_path)
         self.user_phone =  phone_number
         self.user_media_base_path = user_media_base_path
+        self.redisClient = redisClient
         logging.info('Connecting to Telegram servers...')
         self.is_success_connect = True
         if not self.connect():
@@ -82,7 +84,7 @@ class GavriTLClient(TelegramClient):
 
     def do_sign_up(self, code, first_name, last_name=''):
         """ Do sign in with code and password if needed
-            Return values 0 : failed sign in, 1 : normal sign in, 2 : sign in with password
+            Return values None : success, Error message : failed
         """
         self_user = None
         signup_error = None
@@ -197,6 +199,18 @@ class GavriTLClient(TelegramClient):
                                         access_hash=user.access_hash,user_id=user.id)
                     contact.save()
 
+    def do_status_read(self, to, max_id):
+        contactModel = None
+        try:
+            contactModel = TLContact.objects.get(owner=self.user_phone,phone=to)
+        except ObjectDoesNotExist:
+            logging.error('Error do_status_read : User {} does not have contact {}'.format(self.user_phone, to))
+            return
+        
+        peer_user = InputPeerUser(int(contactModel.user_id), int(contactModel.access_hash))
+        result = self.send_read_acknowledge(peer_user, max_id=max_id)
+        # do nothing with the result
+    
     @staticmethod
     def download_progress_callback(downloaded_bytes, total_bytes):
         GavriTLClient.print_progress('Downloaded',
@@ -226,7 +240,7 @@ class GavriTLClient(TelegramClient):
                 logging.info('[User #{} sent {}]'.format(
                     update_object.user_id, update_object.message))
                 m = {}
-                m['type'] = 'text'
+                m['message_type'] = 'text'
                 m['id'] = str(update_object.id)
                 m['from'] = update_object.user_id
                 m['to'] = self.user_phone
@@ -265,7 +279,7 @@ class GavriTLClient(TelegramClient):
                         # chat normal message
                         logging.info('message text')
                         m = {}
-                        m['type'] = 'text'
+                        m['message_type'] = 'text'
                         m['id'] = str(update.message.id)
                         m['from'] = update.message.from_id
                         m['to'] = self.user_phone
@@ -300,7 +314,7 @@ class GavriTLClient(TelegramClient):
                         progress_callback=self.download_progress_callback)
                     logging.info('Media downloaded to {}!'.format(output))
                     m = {}
-                    m['type'] = 'media'
+                    m['message_type'] = 'media'
                     m['id'] = str(msg.id)
                     m['from'] = msg.from_id
                     m['to'] = self.user_phone
@@ -315,29 +329,73 @@ class GavriTLClient(TelegramClient):
                 contactModel = TLContact.objects.get(owner=self.user_phone,user_id=new_message['from'])
             except ObjectDoesNotExist:
                 logging.error("Cannot find contact with user id %s.", new_message['from'])
-                
+            
             new_message['from'] = contactModel.phone
-            logging.info(str(new_message))
+            new_message['type'] = 'incoming'
+            # logging.info(str(new_message))
+            self.redisClient.publish(settings.REDIS_INCOMING_JOB_QUEUE, json.dumps(new_message))
 
         # handle TG containing : contact update, sent media
 
 class GavriTLManager():
-    def __init__(self, api_id, api_hash, session_base_path=None):
+    def __init__(self, api_id, api_hash, redisClient, session_base_path=None):
         self.tl_clients = {}
         self.api_id = api_id
         self.api_hash = api_hash
         self.session_base_path = session_base_path
+        self.redisClient = redisClient
 
-    def add_user(self, phone_number, first_name=None, last_name=None):
+    def init_users(self):
+        userModels = TLUser.objects.filter(state='authorized')
+        if userModels:
+            logging.info('Init users %s', str(len(userModels)))
+            for user in userModels:
+                client = GavriTLClient(self.api_id, self.api_hash, user.phone, self.redisClient, session_base_path = self.session_base_path)
+                logging.info('%s - Is Success connect : %s', user.phone, client.is_success_connect)
+                if client.is_success_connect:
+                    me_obj = client.get_me()
+                    is_authorized = client.session and me_obj is not None
+                    logging.info('%s - Is Client Authorized : %s', user.phone, is_authorized)
+                    if not is_authorized:
+                        # update the user to not authorized and continue
+                        user.state = 'unauthorized'
+                        user.save()
+                        continue
+                    # logging.info(me_obj)
+                    self.tl_clients[user.phone] = client
+                    user.isConnected = True
+                    user.state = 'authorized'
+                    user.access_hash = me_obj.access_hash
+                    user.user_id = me_obj.id
+                    user.username = me_obj.username
+                    user.save()
+
+                    # sync contacts
+                    sleep(0.5)
+                    client.sync_contacts()
+    
+    def add_user(self, phone_number, first_name=None, last_name=None, replace=False):
         if phone_number in self.tl_clients:
-            return 'User already added'
-        client = GavriTLClient(self.api_id, self.api_hash, phone_number, session_base_path = self.session_base_path)
+            if replace:
+                logging.info('Logging out current active user %s.', phone_number)
+                self.tl_clients[phone_number].log_out()
+                del self.tl_clients[phone_number]
+            else:
+                return 'User already added'
+        # silent remove session file
+        session_user_id = phone_number_only(phone_number) + '.session'
+        session_filepath = os.path.join(settings.TELETHON_SESSIONS_DIR, session_user_id)
+        try:
+            os.remove(session_filepath)
+        except OSError:
+            pass
+        client = GavriTLClient(self.api_id, self.api_hash, phone_number, self.redisClient, session_base_path = self.session_base_path)
         logging.info('Is Success connect : %s', client.is_success_connect)
         if client.is_success_connect:
             me_obj = client.get_me()
             is_authorized = client.session and me_obj is not None
             logging.info('Is Client Authorized : %s', is_authorized)
-            logging.info(me_obj)
+            # logging.info(me_obj)
             self.tl_clients[phone_number] = client
 
             # add/update user
@@ -367,7 +425,7 @@ class GavriTLManager():
             if not is_authorized:
                 # need to request code
                 client.send_code_request(phone_number)
-                return 'Request code sent by SMS. Please sign in using the code.'
+                return 'Request code sent.'
             return None
         else:
             return 'Failed adding user: Cannot connect to Telegram servers'

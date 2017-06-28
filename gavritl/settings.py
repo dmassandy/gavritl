@@ -128,6 +128,10 @@ REST_FRAMEWORK = {
     )
 }
 
+LOGGING_FILEPATH = os.path.join(BASE_DIR, 'gavritl.log')
+if 'logfile' in os.environ:
+    LOGGING_FILEPATH = os.path.join(BASE_DIR, os.environ['logfile'])
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -148,7 +152,7 @@ LOGGING = {
         'logfile': {
             'level':'DEBUG',
             'class':'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'gavritl.log'),
+            'filename': LOGGING_FILEPATH,
             'formatter': 'verbose'
         },
     },
@@ -166,6 +170,12 @@ if not os.path.exists(TELETHON_SESSIONS_DIR):
 TELETHON_USER_MEDIA_DIR = os.path.join(BASE_DIR, 'user_media')
 if not os.path.exists(TELETHON_USER_MEDIA_DIR):
     os.makedirs(TELETHON_USER_MEDIA_DIR)
+
+# Redis client
+REDIS_CLIENT_HOST = 'redis'
+REDIS_CLIENT_PORT = 6379
+REDIS_OUTGOING_JOB_QUEUE = 'tl-outgoing-queue'
+REDIS_INCOMING_JOB_QUEUE = 'tl-incoming-queue'
 
 try:
     from .local_settings import *

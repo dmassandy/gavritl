@@ -6,14 +6,17 @@ import logging
 from django.apps import AppConfig
 from django.conf import settings
 
-gavriTLManager = None
+import redis
+
+redisClient = None
 
 class TelegramConfig(AppConfig):
     name = 'telegram'
     verbose_name = 'Gavri Telegram API'
     def ready(self):
-        from .tl_manager import GavriTLManager
-        global gavriTLManager
+        global redisClient
         logging.info('Executing initialization code')
-        gavriTLManager = GavriTLManager(settings.TELEGRAM_API_ID, settings.TELEGRAM_API_HASH, session_base_path=settings.TELETHON_SESSIONS_DIR)
+        redisClient = redis.StrictRedis(host=settings.REDIS_CLIENT_HOST, port=settings.REDIS_CLIENT_PORT, db=0)
+        logging.info('is redisClient None : {}'.format(str(redisClient is None)))
+        
 

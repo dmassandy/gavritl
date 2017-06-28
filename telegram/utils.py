@@ -29,3 +29,9 @@ def download_file(url, download_directory):
                 #f.flush() commented by recommendation from J.F.Sebastian
     return (local_filename, file_path)
 
+def str2bool(v):
+  return v.lower() in ("yes", "true", "t", "1")
+
+def get_filename(file_path):
+    local_filename = file_path.split('/')[-1]
+    return local_filename
