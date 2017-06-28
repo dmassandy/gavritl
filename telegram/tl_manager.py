@@ -159,6 +159,13 @@ class GavriTLClient(TelegramClient):
         msg_id = self.send_photo_file(input_file, peer_user, caption=caption)
         logging.debug('Photo sent!')
         logging.info('Send message id {}'.format(msg_id))
+
+        # TO DO : remove file if uploaded successfully to telegram
+        try:
+            os.remove(path)
+        except OSError as e:
+            logging.warning("Cannot remove photo downloaded file {} : ".format(path, str(e)))
+
         return msg_id
     
     def send_document(self, path, to, caption, first_name, last_name=None):
@@ -176,6 +183,13 @@ class GavriTLClient(TelegramClient):
         msg_id = self.send_document_file(input_file, peer_user, caption=caption)
         logging.debug('Document sent!')
         logging.info('Send message id {}'.format(msg_id))
+
+        # TO DO : remove file if uploaded successfully to telegram
+        try:
+            os.remove(path)
+        except OSError as e:
+            logging.warning("Cannot remove document downloaded file {} : ".format(path, str(e)))
+        
         return msg_id
 
     def sync_contacts(self):
