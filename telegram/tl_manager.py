@@ -7,7 +7,8 @@ from telethon import TelegramClient
 from telethon.utils import find_user_or_chat
 from telethon.errors import SessionPasswordNeededError
 from telethon.tl.types import (UpdateShortChatMessage, UpdateShortMessage, User, InputPeerUser, InputUser,
-                                InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage, UpdateReadHistoryOutbox)
+                                InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage, 
+                                UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint)
 
 from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest
 from telethon.tl.types.contacts import Contacts, ImportedContacts
@@ -324,22 +325,36 @@ class GavriTLClient(TelegramClient):
                 logging.info('Media message to download: {}'.format(str(len(media_list))))
                 # download media
                 for msg in media_list:
-                    output = phone_number_only(self.user_phone) + "_" + str(msg.id)
-                    output = os.path.join(settings.TELETHON_USER_MEDIA_DIR, output)
-                    logging.info('Downloading media to {}...'.format(output))
-                    output = self.download_msg_media(
-                        msg.media,
-                        file_path=output,
-                        progress_callback=self.download_progress_callback)
-                    logging.info('Media downloaded to {}!'.format(output))
-                    m = {}
-                    m['message_type'] = 'media'
-                    m['id'] = str(msg.id)
-                    m['from'] = msg.from_id
-                    m['to'] = self.user_phone
-                    m['caption'] = getattr(msg.media, 'caption', '')
-                    m['file_path'] = output
-                    new_messages.append(m)
+                    if type(msg) is MessageMediaGeo:
+                        if type(msg.geo) is GeoPoint:
+                            logging.info('Received GeoPoint message {} - {}!'.format(msg.geo.lat, msg.geo.long))
+                            m = {}
+                            m['message_type'] = 'location'
+                            m['id'] = str(msg.id)
+                            m['from'] = msg.from_id
+                            m['to'] = self.user_phone
+                            m['lat'] = msg.geo.lat
+                            m['long'] = msg.geo.long
+                            new_messages.append(m)
+                        else:
+                            logging.warning('Received empty GeoPoint!')
+                    else:
+                        output = phone_number_only(self.user_phone) + "_" + str(msg.id)
+                        output = os.path.join(settings.TELETHON_USER_MEDIA_DIR, output)
+                        logging.info('Downloading media to {}...'.format(output))
+                        output = self.download_msg_media(
+                            msg.media,
+                            file_path=output,
+                            progress_callback=self.download_progress_callback)
+                        logging.info('Media downloaded to {}!'.format(output))
+                        m = {}
+                        m['message_type'] = 'media'
+                        m['id'] = str(msg.id)
+                        m['from'] = msg.from_id
+                        m['to'] = self.user_phone
+                        m['caption'] = getattr(msg.media, 'caption', '')
+                        m['file_path'] = output
+                        new_messages.append(m)
 
         for new_message in new_messages:
             # get from phone number

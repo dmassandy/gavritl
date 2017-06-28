@@ -42,6 +42,9 @@ def send_incoming_message(message, s3_client):
     
     if message["message_type"] == "text" :
         payload["message"] = message["body"]
+    elif message["message_type"] == "location":
+        payload["lat"] = message["lat"]
+        payload["long"] = message["long"]
     else:
         # TO DO : upload media to s3 here
         file_name = get_filename(message["file_path"])
