@@ -8,7 +8,7 @@ from telethon.utils import find_user_or_chat
 from telethon.errors import SessionPasswordNeededError
 from telethon.tl.types import (UpdateShortChatMessage, UpdateShortMessage, User, InputPeerUser, InputUser,
                                 InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage, 
-                                UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint)
+                                UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint, MessageMediaWebPage, WebPage)
 
 from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest
 from telethon.tl.types.contacts import Contacts, ImportedContacts
@@ -338,6 +338,23 @@ class GavriTLClient(TelegramClient):
                             new_messages.append(m)
                         else:
                             logging.warning('Received empty GeoPoint!')
+                    elif type(msg.media) is MessageMediaWebPage:
+                        m = {
+                            'message_type' : 'url',
+                            'id' : str(msg.id),
+                            'from' : msg.from_id,
+                            'to' : self.user_phone
+                        }
+                        m['url'] = msg.media.url
+                        if msg.media.type is not None:
+                            m['site_type'] = msg.media.type
+                        if msg.media.site_name is not None:
+                            m['site_name'] = msg.media.site_name
+                        if msg.media.title is not None:
+                            m['title'] = msg.media.title
+                        if msg.media.description is not None:
+                            m['description'] = msg.media.description
+                        new_messages.append(m)
                     else:
                         output = phone_number_only(self.user_phone) + "_" + str(msg.id)
                         output = os.path.join(settings.TELETHON_USER_MEDIA_DIR, output)

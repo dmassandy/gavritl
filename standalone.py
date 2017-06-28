@@ -45,6 +45,16 @@ def send_incoming_message(message, s3_client):
     elif message["message_type"] == "location":
         payload["lat"] = message["lat"]
         payload["long"] = message["long"]
+    elif message["message_type"] == "url":
+        payload['url'] = message["url"]
+        if "site_type" in message :
+            payload['site_type'] = message['site_type']
+        if "site_name" in message:
+            payload['site_name'] = message['site_name']
+        if "title" in message:
+            payload['title'] = message['title']
+        if "description" in message:
+            payload['description'] = message['description']
     else:
         # TO DO : upload media to s3 here
         file_name = get_filename(message["file_path"])
