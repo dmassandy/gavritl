@@ -6,7 +6,7 @@ services:
     image: gavritl
     environment:
       - RUN_MODE=gavritl_web
-      - logfile=gavritl2.log
+      - logfile=gavritl.log
     command: /start.sh
     hostname: gavritl
     volumes:
