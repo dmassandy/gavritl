@@ -92,7 +92,7 @@ def send_incoming_message(message, s3_client):
             logging.warning("Cannot remove downloaded file {} : ".format(message["file_path"], str(e)))
     
     logging.info(str(payload))
-    sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/incoming', payload)
+    sendJsonToMoobiDesk(settings.MOOBIDESK_ENDPOINT, '/telegram/mo', payload)
 
 def send_message_sent_update(message):
     # send message outgoing id/status to Moobidesk
