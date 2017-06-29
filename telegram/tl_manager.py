@@ -8,7 +8,8 @@ from telethon.utils import find_user_or_chat
 from telethon.errors import SessionPasswordNeededError
 from telethon.tl.types import (UpdateShortChatMessage, UpdateShortMessage, User, InputPeerUser, InputUser,
                                 InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage, 
-                                UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint, MessageMediaWebPage, WebPage, MessageMediaVenue)
+                                UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint, MessageMediaWebPage, WebPage, 
+                                MessageMediaVenue, InputMediaContact, InputMediaGeoPoint, InputMediaVenue, InputGeoPoint)
 
 from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest
 from telethon.tl.types.contacts import Contacts, ImportedContacts
@@ -191,6 +192,44 @@ class GavriTLClient(TelegramClient):
         except OSError as e:
             logging.warning("Cannot remove document downloaded file {} : ".format(path, str(e)))
         
+        return msg_id
+    
+    def send_location(self, to, lat, long, first_name, last_name=None, title=None, address=None, provider=None, venue_id=None):
+        contactModel = self.get_or_create_new_contact(to, first_name, last_name=last_name)
+        if contactModel is None:
+            return None
+        
+        peer_user = InputPeerUser(int(contactModel.user_id), int(contactModel.access_hash))
+
+        input_media = None
+        if title is None and address is None:
+            input_media = InputMediaGeoPoint(InputGeoPoint(lat, long))
+        else:
+            geo = InputGeoPoint(lat, long)
+            title = title if title is not None else ''
+            address = address if address is not None else ''
+            provider = provider if provider is not None else ''
+            venue_id = venue_id if venue_id is not None else ''
+            input_media = InputMediaVenue(geo, title, address, provider, venue_id)
+        
+        msg_id = self.send_media_file(input_media, peer_user)
+        logging.debug('Contact sent!')
+        logging.info('Send message id {}'.format(msg_id))
+
+        return msg_id
+
+
+    def send_contact(self, to, contact_phone_number, contact_first_name, first_name, last_name=None, contact_last_name=''):
+        contactModel = self.get_or_create_new_contact(to, first_name, last_name=last_name)
+        if contactModel is None:
+            return None
+        
+        peer_user = InputPeerUser(int(contactModel.user_id), int(contactModel.access_hash))
+        input_contact = InputMediaContact(contact_phone_number, contact_first_name, contact_last_name)
+        msg_id = self.send_media_file(input_contact, peer_user)
+        logging.debug('Contact sent!')
+        logging.info('Send message id {}'.format(msg_id))
+
         return msg_id
 
     def sync_contacts(self):

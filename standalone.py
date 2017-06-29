@@ -17,6 +17,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gavritl.settings')
 django.setup()
 
 INCOMING_THREAD_RUN = True
+downloadable_media_types = ['image', 'video', 'audio', 'document']
 
 def sendJsonToMoobiDesk(prefix, url, data):
     if prefix == '':
@@ -240,8 +241,16 @@ def do_send_media(gavriTLManager, message, redisClient):
     else:
         if message['media_type'] == "image":
             message_id = client.send_photo(message['file_path'], message['phone_to'], message.get('caption', None), message['first_name'], last_name=message.get('last_name', ''))
-        else:
+        elif message['media_type'] in downloadable_media_types:
             message_id = client.send_document(message['file_path'], message['phone_to'], message.get('caption', None), message['first_name'], last_name=message.get('last_name', ''))
+        elif message['media_type'] == 'location':
+            message_id = client.send_location(message['phone_to'], float(message['lat']), float(message['long']), message['first_name'], last_name=message.get('last_name', ''), title=message.get('title'), address=message.get('address'), provider=message.get('provider'), venue_id=message.get('venue_id'))
+        elif message['media_type'] == 'url':
+            message_id = client.send_text_message(message['phone_to'], message['url'], message['first_name'], last_name=message.get('last_name', ''))
+        elif message['media_type'] == 'contact':
+            message_id = client.send_contact(message['phone_to'], message['contact_phone_number'], message['contact_first_name'], message['first_name'], last_name=message.get('last_name', ''), contact_last_name=message.get('contact_last_name', ''))
+        else:
+            logging.warning("Unrecognized media_type {} from {} to {}".format(message['media_type'], message['phone_from'], message['phone_to']))
         
         if message_id is None:
             response["message"] = "Failed sent message from {} to {}".format(message['phone_from'], message['phone_to'])
