@@ -25,8 +25,13 @@ def sendJsonToMoobiDesk(prefix, url, data):
     # logging.debug(data)
     response = requests.post(prefix + url, json=data)
     logging.info("Sending to moobidesk %s - %s"%(response.status_code,response.text))
-    response_data = json.loads(response.text)
-    return response_data['status'].lower() == "ok"
+    is_response_ok = False
+    try:
+        response_data = json.loads(response.text)
+        is_response_ok = response_data['status'].lower() == "ok"
+    except Exception as e:
+        logging.warning("Error sending to moobidesk parsing response text : {}".format(response.text))
+    return is_response_ok
 
 def send_incoming_message(message, s3_client):
     # send incoming message to Moobidesk
