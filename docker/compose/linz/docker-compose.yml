@@ -40,8 +40,6 @@ services:
       - gavritl_network
   redis:
     image: redis:latest
-    ports:
-        - "6379:6379"
     networks:
       - gavritl_network
 networks:
