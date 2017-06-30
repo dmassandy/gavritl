@@ -36,7 +36,6 @@ services:
       - redis:redis
     depends_on:
       - redis
-    restart: on-failure
     networks:
       - gavritl_network
   redis:
