@@ -245,9 +245,12 @@ class GavriTLClient(TelegramClient):
         result = self.invoke(GetContactsRequest(contact_hash))
         # logging.info(result)
         if type(result) is Contacts and len(result.users) > 0 :
-            logging.info('New contact added : {}'.format(str(len(result.users))))
+            logging.info('New contact to be added : {}'.format(str(len(result.users))))
             for user in result.users:
                 if type(user) is User:
+                    isExists = TLContact.objects.filter(owner=self.user_phone,phone=phone_norm(user.phone)).exists()
+                    if isExists:
+                        continue
                     contact = TLContact(owner=self.user_phone,phone=phone_norm(user.phone),
                                         username=user.username,first_name=user.first_name,last_name=user.last_name,
                                         access_hash=user.access_hash,user_id=user.id)
@@ -437,8 +440,9 @@ class GavriTLClient(TelegramClient):
             if contactModel.last_name is not None:
                 new_message['sender_last_name'] = contactModel.last_name
             new_message['type'] = 'incoming'
-            # logging.info(str(new_message))
+            logging.info(str(new_message))
             self.redisClient.publish(settings.REDIS_INCOMING_JOB_QUEUE, json.dumps(new_message))
+            logging.info("Done sending")
         
         for read_outbox in outbox_read:
             # get from phone number
@@ -456,7 +460,9 @@ class GavriTLClient(TelegramClient):
                 "max_id": read_outbox.max_id,
                 "message": "User {} has read {}'s messages until message_id {}".format(contactModel.phone, self.user_phone, read_outbox.max_id)
             }
+            logging.info(str(payload))
             self.redisClient.publish(settings.REDIS_INCOMING_JOB_QUEUE, json.dumps(payload))
+            logging.info("Done sending")
         # handle TG containing : contact update, sent media, outbox history read
 
 class GavriTLManager():
