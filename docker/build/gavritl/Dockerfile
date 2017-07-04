@@ -25,7 +25,7 @@ ADD requirements.txt /gavritl-app/requirements.txt
 
 RUN pip install -r requirements.txt
 
-ADD start.sh /start.sh
+ADD start.sh /gavritl-app/start.sh
 
 VOLUME /gavritl-app
 
