@@ -2,6 +2,7 @@ import os
 import logging
 import traceback
 from time import sleep
+import mimetypes
 import django
 import redis
 import boto3
@@ -11,6 +12,9 @@ from threading import Thread
 from gavritl import settings
 
 from telegram.utils import phone_norm,get_filename
+
+#init mimetypes
+mimetypes.init(files=['mime.types'])
 
 # needed for setting up django standalone apps
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gavritl.settings')
@@ -85,6 +89,8 @@ def send_incoming_message(message, s3_client):
                     settings.S3_BUCKET,
                     file_name)
         payload["caption"] = message.get("caption", "")
+        payload["mime_type"] = message.get("mime_type")
+        payload["size"] = message.get("size")
         # TO DO : remove file if uploaded successfully to s3
         try:
             os.remove(message["file_path"])

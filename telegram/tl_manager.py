@@ -9,7 +9,8 @@ from telethon.errors import SessionPasswordNeededError
 from telethon.tl.types import (UpdateShortChatMessage, UpdateShortMessage, User, InputPeerUser, InputUser,
                                 InputPhoneContact, UpdatesTg, UpdateContactLink, PeerUser, UpdateNewMessage, 
                                 UpdateReadHistoryOutbox, MessageMediaGeo, GeoPoint, MessageMediaWebPage, WebPage, 
-                                MessageMediaVenue, InputMediaContact, InputMediaGeoPoint, InputMediaVenue, InputGeoPoint)
+                                MessageMediaVenue, InputMediaContact, InputMediaGeoPoint, InputMediaVenue, InputGeoPoint,
+                                MessageMediaDocument, Document)
 
 from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest
 from telethon.tl.types.contacts import Contacts, ImportedContacts
@@ -411,6 +412,7 @@ class GavriTLClient(TelegramClient):
                     else:
                         output = phone_number_only(self.user_phone) + "_" + str(msg.id)
                         output = os.path.join(settings.TELETHON_USER_MEDIA_DIR, output)
+                        # logging.info(str(msg.media))
                         logging.info('Downloading media to {}...'.format(output))
                         output = self.download_msg_media(
                             msg.media,
@@ -424,6 +426,16 @@ class GavriTLClient(TelegramClient):
                         m['to'] = self.user_phone
                         m['caption'] = getattr(msg.media, 'caption', '')
                         m['file_path'] = output
+
+                        # TO DO : get size for photo
+                        if type(msg.media) is MessageMediaDocument and msg.media.document is not None and type(msg.media.document) is Document:
+                            m['mime_type'] = msg.media.document.mime_type
+                            m['size'] = msg.media.document.size
+                            # TO DO : add more attrib based on its type : document_attribute_xxx
+                            # if msg.media.document.attributes is not None:
+                            #     for attrib in msg.media.document.attributes:
+                            #         logging.info('attrib types: {}'.format(type(attrib).__name__))
+
                         new_messages.append(m)
 
         for new_message in new_messages:
