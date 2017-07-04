@@ -25,11 +25,13 @@ ADD requirements.txt /gavritl-app/requirements.txt
 
 RUN pip install -r requirements.txt
 
-ADD start.sh /gavritl-app/start.sh
+ADD start.sh /start.sh
+
+RUN chmod +x /start.sh
 
 VOLUME /gavritl-app
 
 # EXPOSE port 8000 to allow communication to/from server
 EXPOSE 8000
 
-CMD ["/gavritl-app/start.sh"]
+CMD ["/start.sh"]
