@@ -32,4 +32,4 @@ VOLUME /gavritl-app
 # EXPOSE port 8000 to allow communication to/from server
 EXPOSE 8000
 
-CMD ["./start.sh"]
+CMD ["start.sh"]
