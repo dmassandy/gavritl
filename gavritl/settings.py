@@ -172,6 +172,9 @@ TELETHON_USER_MEDIA_DIR = os.path.join(BASE_DIR, 'user_media')
 if not os.path.exists(TELETHON_USER_MEDIA_DIR):
     os.makedirs(TELETHON_USER_MEDIA_DIR)
 
+# contact sync parameter get Dialog
+TELETHON_CONTACT_SYNC_DIALOG_COUNT = 50
+
 # Redis client
 REDIS_CLIENT_HOST = 'redis'
 REDIS_CLIENT_PORT = 6379

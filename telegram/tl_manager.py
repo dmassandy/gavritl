@@ -114,6 +114,35 @@ class GavriTLClient(TelegramClient):
             logging.warning('No user in db %s', self.user_phone)
 
         return signup_error
+
+    def create_new_contact(self, phone, first_name, last_name=None):
+        contactModel = None
+        inputContact = InputPhoneContact(0, phone, first_name, '' if last_name is None else last_name)
+        result = self.invoke(ImportContactsRequest([inputContact], True))
+        logging.debug(result)
+        if type(result) is ImportedContacts and len(result.users) > 0 :
+            # logging.info('New contact added: {}'.format(str(len(result.users))))
+            for user in result.users:
+                if type(user) is User:
+                    # do second check here
+                    user_phone_norm = phone_norm(user.phone)
+                    isContactExist = TLContact.objects.filter(owner=self.user_phone,phone=user_phone_norm).exists()
+                    if not isContactExist:
+                        contact = TLContact(owner=self.user_phone,phone=user_phone_norm,
+                                            username=user.username,first_name=user.first_name,last_name=user.last_name,
+                                            access_hash=user.access_hash,user_id=user.id)
+                        contact.save()
+                        contactModel = contact
+                    else:
+                        # contact already exist, get one
+                        try:
+                            contactModel = TLContact.objects.get(owner=self.user_phone,phone=user_phone_norm)
+                        except ObjectDoesNotExist:
+                            # failed here
+                            logging.error('Failed adding contact...')
+                            contactModel = None
+        return contactModel
+
     
     def get_or_create_new_contact(self, phone, first_name, last_name=None):
         contactModel = None
@@ -121,18 +150,7 @@ class GavriTLClient(TelegramClient):
             contactModel = TLContact.objects.get(owner=self.user_phone,phone=phone)
         except ObjectDoesNotExist:
             logging.warning('No contact exits in %s, adding new contact %s', self.user_phone, phone)
-            inputContact = InputPhoneContact(0, phone, first_name, '' if last_name is None else last_name)
-            result = self.invoke(ImportContactsRequest([inputContact], True))
-            logging.debug(result)
-            if type(result) is ImportedContacts and len(result.users) > 0 :
-                logging.info('New contact added : {}'.format(str(len(result.users))))
-                for user in result.users:
-                    if type(user) is User:
-                        contact = TLContact(owner=self.user_phone,phone=phone_norm(user.phone),
-                                            username=user.username,first_name=user.first_name,last_name=user.last_name,
-                                            access_hash=user.access_hash,user_id=user.id)
-                        contact.save()
-                        contactModel = contact
+            contactModel = self.create_new_contact(phone, first_name, last_name)
             sleep(0.5)
 
         return contactModel
@@ -258,6 +276,13 @@ class GavriTLClient(TelegramClient):
                                         access_hash=user.access_hash,user_id=user.id)
                     contact.save()
 
+        # get dialogs
+        dialog_count = settings.TELETHON_CONTACT_SYNC_DIALOG_COUNT
+        dialogs, entities = self.get_dialogs(dialog_count)
+        for entity in entities:
+            if type(entity) is User:
+                contactModel = self.get_or_create_new_contact(phone_norm(entity.phone), entity.first_name, last_name=entity.last_name)
+
     def do_status_read(self, to, max_id):
         contactModel = None
         try:
@@ -360,10 +385,7 @@ class GavriTLClient(TelegramClient):
                         # check if there is existing record or not
                         isContactExist = TLContact.objects.filter(owner=self.user_phone,phone=phone_norm(user.phone)).exists()
                         if not isContactExist:
-                            contact = TLContact(owner=self.user_phone,phone=phone_norm(user.phone),
-                                            username=user.username,first_name=user.first_name,last_name=user.last_name,
-                                            access_hash=user.access_hash,user_id=user.id)
-                            contact.save()
+                            self.create_new_contact(phone_norm(user.phone), user.first_name, last_name=user.last_name)
             
             if len(media_list) > 0 :
                 logging.info('Media message to download: {}'.format(str(len(media_list))))
