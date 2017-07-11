@@ -235,18 +235,19 @@ class GavriTLClient(TelegramClient):
 
     def sync_contacts(self):
         contact_hash = ""
-        contacts = TLContact.objects.filter(owner=self.user_phone).order_by('user_id')
-        if contacts is not None and len(contacts) > 0:
-            for contact in contacts:
-                contact_hash = contact_hash + contact.user_id + ","
-            contact_hash = contact_hash[:-1]
-            contact_hash = hashlib.md5(contact_hash.encode('utf-8')).hexdigest()
+        # request all contacts
+        # contacts = TLContact.objects.filter(owner=self.user_phone).order_by('user_id')
+        # if contacts is not None and len(contacts) > 0:
+        #     for contact in contacts:
+        #         contact_hash = contact_hash + contact.user_id + ","
+        #     contact_hash = contact_hash[:-1]
+        #     contact_hash = hashlib.md5(contact_hash.encode('utf-8')).hexdigest()
 
         logging.info('Sync contact hash :  {}...'.format(contact_hash))
         result = self.invoke(GetContactsRequest(contact_hash))
         # logging.info(result)
         if type(result) is Contacts and len(result.users) > 0 :
-            logging.info('New contact to be added : {}'.format(str(len(result.users))))
+            logging.info('Contact results : {}'.format(str(len(result.users))))
             for user in result.users:
                 if type(user) is User:
                     isExists = TLContact.objects.filter(owner=self.user_phone,phone=phone_norm(user.phone)).exists()
