@@ -1,6 +1,7 @@
 import os
 import hashlib
 import json
+import threading
 from time import sleep
 from django.core.exceptions import ObjectDoesNotExist
 from telethon import TelegramClient
@@ -12,7 +13,7 @@ from telethon.tl.types import (UpdateShortChatMessage, UpdateShortMessage, User,
                                 MessageMediaVenue, InputMediaContact, InputMediaGeoPoint, InputMediaVenue, InputGeoPoint,
                                 MessageMediaDocument, Document)
 
-from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest
+from telethon.tl.functions.contacts import GetContactsRequest, ImportContactsRequest, DeleteContactRequest
 from telethon.tl.types.contacts import Contacts, ImportedContacts
 from telethon.tl.functions.users import GetUsersRequest
 from telethon.errors import (PhoneNumberInvalidError, PhoneCodeEmptyError, PhoneCodeExpiredError, PhoneCodeInvalidError, FirstNameInvalidError, LastNameInvalidError)
@@ -39,6 +40,7 @@ class GavriTLClient(TelegramClient):
         session_user_id = phone_number.replace('+','')
         logging.info('Initializing GavriTLClient %s', phone_number)
         super().__init__(session_user_id, api_id, api_hash, proxy=proxy, session_base_path=session_base_path)
+        self.contact_lock = threading.Lock()
         self.user_phone =  phone_number
         self.user_media_base_path = user_media_base_path
         self.redisClient = redisClient
@@ -114,6 +116,28 @@ class GavriTLClient(TelegramClient):
             logging.warning('No user in db %s', self.user_phone)
 
         return signup_error
+    
+    def create_tl_contact(self, phone, first_name, access_hash, user_id, last_name=None, username=None):
+        contactModel = None
+        self.contact_lock.acquire()
+        try:
+            isContactExist = TLContact.objects.filter(owner=self.user_phone,phone=phone).exists()
+            if not isContactExist:
+                contact = TLContact(owner=self.user_phone,phone=phone,
+                                    username=username,first_name=first_name,last_name=last_name,
+                                    access_hash=access_hash,user_id=user_id)
+                contact.save()
+                contactModel = contact
+            else:
+                try:
+                    contactModel = TLContact.objects.get(owner=self.user_phone,phone=phone)
+                except ObjectDoesNotExist:
+                    # failed here
+                    contactModel = None
+        finally:
+            self.contact_lock.release()
+        
+        return contactModel
 
     def create_new_contact(self, phone, first_name, last_name=None):
         contactModel = None
@@ -126,21 +150,12 @@ class GavriTLClient(TelegramClient):
                 if type(user) is User:
                     # do second check here
                     user_phone_norm = phone_norm(user.phone)
-                    isContactExist = TLContact.objects.filter(owner=self.user_phone,phone=user_phone_norm).exists()
-                    if not isContactExist:
-                        contact = TLContact(owner=self.user_phone,phone=user_phone_norm,
-                                            username=user.username,first_name=user.first_name,last_name=user.last_name,
-                                            access_hash=user.access_hash,user_id=user.id)
-                        contact.save()
-                        contactModel = contact
-                    else:
-                        # contact already exist, get one
-                        try:
-                            contactModel = TLContact.objects.get(owner=self.user_phone,phone=user_phone_norm)
-                        except ObjectDoesNotExist:
-                            # failed here
-                            logging.error('Failed adding contact...')
-                            contactModel = None
+                    contactModel = self.create_tl_contact(user_phone_norm, user.first_name, user.access_hash, user.id, last_name=user.last_name, username=user.username)
+
+                    if contactModel is None:
+                        # check contact exist, but fetch is error
+                        # or error on save()
+                        logging.error('Failed adding contact...{} - {}'.format(self.user_phone, user_phone_norm))
         return contactModel
 
     
@@ -254,13 +269,6 @@ class GavriTLClient(TelegramClient):
     def sync_contacts(self):
         contact_hash = ""
         # request all contacts
-        # contacts = TLContact.objects.filter(owner=self.user_phone).order_by('user_id')
-        # if contacts is not None and len(contacts) > 0:
-        #     for contact in contacts:
-        #         contact_hash = contact_hash + contact.user_id + ","
-        #     contact_hash = contact_hash[:-1]
-        #     contact_hash = hashlib.md5(contact_hash.encode('utf-8')).hexdigest()
-
         logging.info('Sync contact hash :  {}...'.format(contact_hash))
         result = self.invoke(GetContactsRequest(contact_hash))
         # logging.info(result)
@@ -275,13 +283,30 @@ class GavriTLClient(TelegramClient):
                                         username=user.username,first_name=user.first_name,last_name=user.last_name,
                                         access_hash=user.access_hash,user_id=user.id)
                     contact.save()
-
+        
+        sleep(0.1)
         # get dialogs
         dialog_count = settings.TELETHON_CONTACT_SYNC_DIALOG_COUNT
         dialogs, entities = self.get_dialogs(dialog_count)
         for entity in entities:
             if type(entity) is User:
                 contactModel = self.get_or_create_new_contact(phone_norm(entity.phone), entity.first_name, last_name=entity.last_name)
+    
+    def do_delete_contact(self, phone):
+        user_phone_norm = phone_norm(phone)
+        isContactExist = TLContact.objects.filter(owner=self.user_phone,phone=user_phone_norm).exists()
+        if isContactExist:
+            contactModel = TLContact.objects.get(owner=self.user_phone,phone=user_phone_norm)
+            inputUser = InputUser(int(contactModel.user_id), int(contactModel.access_hash))
+            result = self.invoke(DeleteContactRequest(inputUser))
+            # logging.info(result)
+            self.contact_lock.acquire()
+            try:
+                contactModel.delete()
+            finally:
+                self.contact_lock.release()
+        else:
+            logging.error('Contact does not exist {} - {}'.format(self.user_phone, phone=user_phone_norm))
 
     def do_status_read(self, to, max_id):
         contactModel = None
