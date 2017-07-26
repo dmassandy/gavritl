@@ -22,8 +22,6 @@ available_media_types = ['image', 'video', 'audio', 'document', 'location', 'url
 downloadable_media_types = ['image', 'video', 'audio', 'document']
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def send_text(request):
     logging.info('send text request')
     required = ['from', 'to', 'body', 'first_name', 'internal_id']
@@ -52,8 +50,6 @@ def send_text(request):
 
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def send_media(request):
     required = ['from', 'to', 'type', 'internal_id', 'first_name']
     if not validate_fields(request.data, required):
@@ -160,8 +156,6 @@ def send_media(request):
 
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def status_read(request):
     required = ['phone_number', 'from', 'max_id']
     if not validate_fields(request.data, required):

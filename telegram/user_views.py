@@ -20,8 +20,6 @@ from .apps import redisClient
 from .models import TLUser
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def request_code(request):
     required = ['phone_number','first_name']
     if not validate_fields(request.data, required):
@@ -43,8 +41,6 @@ def request_code(request):
     return Response({"message": "Success!"})
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def sign_in(request):
     required = ['phone_number', 'code', 'first_name']
     if not validate_fields(request.data, required):
@@ -70,8 +66,6 @@ def sign_in(request):
     return Response({"message": "Success!"})
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def sign_up(request):
     required = ['phone_number', 'code', 'first_name']
     if not validate_fields(request.data, required):
@@ -96,8 +90,6 @@ def sign_up(request):
     return Response({"message": "Success!"})
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def log_out(request):
     required = ['phone_number']
     if not validate_fields(request.data, required):
@@ -105,8 +97,6 @@ def log_out(request):
     return Response({"message": "Success!"})
 
 @api_view(['POST'])
-@authentication_classes((TokenAuthentication,))
-@permission_classes((IsAuthenticated,))
 def set_presence(request):
     required = ['phone_number', 'presence']
     if not validate_fields(request.data, required):
