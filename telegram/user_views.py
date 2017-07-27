@@ -4,8 +4,10 @@ import os
 import logging
 from time import sleep
 import json
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.conf import settings
+from django.core import serializers
 
 # Create your views here.
 from rest_framework import status
@@ -17,7 +19,7 @@ from .utils import validate_fields,phone_norm,phone_number_only,str2bool
 
 from .apps import redisClient
 
-from .models import TLUser
+from .models import TLUser, TLUserSerializer
 
 @api_view(['POST'])
 def request_code(request):
@@ -117,3 +119,18 @@ def set_presence(request):
     redisClient.publish(settings.REDIS_OUTGOING_JOB_QUEUE, json.dumps(req))
 
     return Response({"message": "Success!"})
+
+@api_view(['GET'])
+def get_all_user_status(request):
+    user_list = TLUser.objects.all()
+    serializer = TLUserSerializer(user_list, many=True)
+    return JsonResponse(serializer.data, safe=False)
+
+@api_view(['GET'])
+def get_user_status(request, phone):
+    if TLUser.objects.filter(phone=phone_norm(phone)).exists():
+        user = TLUser.objects.get(phone=phone_norm(phone))
+        serializer = TLUserSerializer(user, many=False)
+        return JsonResponse(serializer.data, safe=False)
+    
+    return Response({"message" : "Not Found"}, status=status.HTTP_404_NOT_FOUND)

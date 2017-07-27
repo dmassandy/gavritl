@@ -12,6 +12,8 @@ urlpatterns = [
     url(r'^user/request_code$', user_views.request_code, name='User Request Code'),
     url(r'^user/sign_in$', user_views.sign_in, name='User Sign In'),
     url(r'^user/sign_up$', user_views.sign_up, name='User Sign Up'),
+    url(r'^user/all$', user_views.get_all_user_status, name='All User Status'),
+    url(r'^user/status/(?P<phone>[0-9]+)$', user_views.get_user_status, name='User Status'),
     # url(r'^user/logout$', user_views.log_out, name='User Log Out'),
     # url(r'^user/status$', user_views.set_presence, name='User Set Presence')
 ]
